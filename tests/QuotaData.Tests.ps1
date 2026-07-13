@@ -176,7 +176,9 @@ foreach ($commandName in @('Resolve-CodexBarCliPath', 'Resolve-CodexBarAppPath')
 
 $resolverRoot = Join-Path $env:TEMP ('CodexQuotaFloat-resolver-' + [guid]::NewGuid().ToString('N'))
 $defaultDirectory = Join-Path $resolverRoot 'Programs\CodexBar'
-New-Item -ItemType Directory -Path $defaultDirectory -Force | Out-Null
+$pathDirectory = Join-Path $resolverRoot 'path'
+$originalPath = $env:PATH
+New-Item -ItemType Directory -Path $defaultDirectory,$pathDirectory -Force | Out-Null
 try {
     $configuredCli = Join-Path $resolverRoot 'custom-codexbar-cli.exe'
     Set-Content -LiteralPath $configuredCli -Value ''
@@ -191,9 +193,17 @@ try {
     Assert-Equal -Actual (Resolve-CodexBarAppPath -ConfiguredPath '' -LocalAppData $resolverRoot) -Expected $defaultApp -Name 'default app install path'
 
     Remove-Item -LiteralPath $defaultCli,$defaultApp -Force
+    $pathCli = Join-Path $pathDirectory 'codexbar-cli.exe'
+    Set-Content -LiteralPath $pathCli -Value ''
+    $env:PATH = $pathDirectory
+    Assert-Equal -Actual (Resolve-CodexBarCliPath -ConfiguredPath '' -LocalAppData $resolverRoot) -Expected $pathCli -Name 'PATH CLI fallback'
+
+    Remove-Item -LiteralPath $pathCli -Force
+    $env:PATH = ''
     Assert-Equal -Actual (Resolve-CodexBarCliPath -ConfiguredPath '' -LocalAppData $resolverRoot) -Expected $null -Name 'missing CLI returns null'
 }
 finally {
+    $env:PATH = $originalPath
     Remove-Item -LiteralPath $resolverRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
 
