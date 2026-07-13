@@ -6,12 +6,29 @@ Import-Module $modulePath -Force
 
 $target = 'C:\Users\Public\CodexQuotaFloat\CodexQuotaFloat.ps1'
 $exact = 'powershell.exe -NoProfile -File "C:\Users\Public\CodexQuotaFloat\CodexQuotaFloat.ps1"'
+$fileAlias = 'powershell.exe -NoProfile -f C:\Users\Public\CodexQuotaFloat\CodexQuotaFloat.ps1'
 $source = 'powershell.exe -NoProfile -File "C:\src\CodexQuotaFloat\CodexQuotaFloat.ps1"'
 $mentionOnly = 'powershell.exe -Command "$x=''C:\Users\Public\CodexQuotaFloat\CodexQuotaFloat.ps1''"'
+$quotedCommandPseudoFile = 'powershell.exe -Command "Write-Output -File C:\Users\Public\CodexQuotaFloat\CodexQuotaFloat.ps1 "'
+$unquotedCommandPseudoFile = 'powershell.exe -Command Write-Output -File "C:\Users\Public\CodexQuotaFloat\CodexQuotaFloat.ps1"'
+$commandBoundaryCases = @(
+    $quotedCommandPseudoFile,
+    $unquotedCommandPseudoFile,
+    'powershell.exe -c Write-Output -File "C:\Users\Public\CodexQuotaFloat\CodexQuotaFloat.ps1"',
+    'powershell.exe -EncodedCommand AAAA -File "C:\Users\Public\CodexQuotaFloat\CodexQuotaFloat.ps1"',
+    'powershell.exe -e AAAA -File "C:\Users\Public\CodexQuotaFloat\CodexQuotaFloat.ps1"',
+    'powershell.exe -ec AAAA -File "C:\Users\Public\CodexQuotaFloat\CodexQuotaFloat.ps1"'
+)
 
 if (-not (Test-ProcessCommandTargetsScript -CommandLine $exact -ScriptPath $target)) { throw 'FAIL: exact installed script was not matched.' }
 if (Test-ProcessCommandTargetsScript -CommandLine $source -ScriptPath $target) { throw 'FAIL: source widget was incorrectly matched.' }
 if (Test-ProcessCommandTargetsScript -CommandLine $mentionOnly -ScriptPath $target) { throw 'FAIL: a plain path mention was incorrectly matched.' }
+foreach ($commandBoundaryCase in $commandBoundaryCases) {
+    if (Test-ProcessCommandTargetsScript -CommandLine $commandBoundaryCase -ScriptPath $target) {
+        throw "FAIL: -File inside a command payload was incorrectly matched: $commandBoundaryCase"
+    }
+}
+if (-not (Test-ProcessCommandTargetsScript -CommandLine $fileAlias -ScriptPath $target)) { throw 'FAIL: top-level -f alias was not matched.' }
 
 $testRoot = Join-Path $env:TEMP ('CodexQuotaFloat-lifecycle-' + [guid]::NewGuid().ToString('N'))
 $targetScript = Join-Path $testRoot 'target.ps1'

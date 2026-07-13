@@ -1,5 +1,33 @@
 Set-StrictMode -Version Latest
 
+function Split-CommandLineTokens {
+    param([Parameter(Mandatory)][string]$CommandLine)
+    $tokens = New-Object System.Collections.Generic.List[string]
+    $current = New-Object System.Text.StringBuilder
+    $insideQuotes = $false
+    $tokenStarted = $false
+
+    foreach ($character in $CommandLine.ToCharArray()) {
+        if ($character -eq '"') {
+            $insideQuotes = -not $insideQuotes
+            $tokenStarted = $true
+            continue
+        }
+        if (-not $insideQuotes -and [char]::IsWhiteSpace($character)) {
+            if ($tokenStarted) {
+                [void]$tokens.Add($current.ToString())
+                [void]$current.Clear()
+                $tokenStarted = $false
+            }
+            continue
+        }
+        [void]$current.Append($character)
+        $tokenStarted = $true
+    }
+    if ($tokenStarted) { [void]$tokens.Add($current.ToString()) }
+    return @($tokens)
+}
+
 function Test-ProcessCommandTargetsScript {
     param(
         [AllowNull()][string]$CommandLine,
@@ -7,8 +35,21 @@ function Test-ProcessCommandTargetsScript {
     )
     if ([string]::IsNullOrWhiteSpace($CommandLine)) { return $false }
     $fullPath = [IO.Path]::GetFullPath($ScriptPath)
-    $pattern = '(?i)(?:^|\s)-File\s+(?:"' + [regex]::Escape($fullPath) + '"|' + [regex]::Escape($fullPath) + ')(?:\s|$)'
-    return [bool]($CommandLine -match $pattern)
+    $tokens = @(Split-CommandLineTokens -CommandLine $CommandLine)
+    for ($index = 1; $index -lt $tokens.Count; $index++) {
+        $token = $tokens[$index]
+        if ($token -in @('-Command', '-c', '-EncodedCommand', '-e', '-ec')) { return $false }
+        if ($token -notin @('-File', '-f')) { continue }
+        if ($index + 1 -ge $tokens.Count) { return $false }
+        try {
+            $candidatePath = [IO.Path]::GetFullPath($tokens[$index + 1])
+        }
+        catch {
+            return $false
+        }
+        return [string]::Equals($candidatePath, $fullPath, [StringComparison]::OrdinalIgnoreCase)
+    }
+    return $false
 }
 
 function Stop-CodexQuotaFloatInstance {
