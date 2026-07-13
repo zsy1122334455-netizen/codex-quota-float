@@ -182,21 +182,21 @@ New-Item -ItemType Directory -Path $defaultDirectory,$pathDirectory -Force | Out
 try {
     $configuredCli = Join-Path $resolverRoot 'custom-codexbar-cli.exe'
     Set-Content -LiteralPath $configuredCli -Value ''
-    Assert-Equal -Actual (Resolve-CodexBarCliPath -ConfiguredPath $configuredCli -LocalAppData $resolverRoot) -Expected $configuredCli -Name 'configured CLI path wins'
+    Assert-Equal -Actual (Resolve-CodexBarCliPath -ConfiguredPath $configuredCli -LocalAppData $resolverRoot) -Expected ([IO.Path]::GetFullPath($configuredCli)) -Name 'configured CLI path wins'
 
     $defaultCli = Join-Path $defaultDirectory 'codexbar-cli.exe'
     Set-Content -LiteralPath $defaultCli -Value ''
-    Assert-Equal -Actual (Resolve-CodexBarCliPath -ConfiguredPath '' -LocalAppData $resolverRoot) -Expected $defaultCli -Name 'default CLI install path'
+    Assert-Equal -Actual (Resolve-CodexBarCliPath -ConfiguredPath '' -LocalAppData $resolverRoot) -Expected ([IO.Path]::GetFullPath($defaultCli)) -Name 'default CLI install path'
 
     $defaultApp = Join-Path $defaultDirectory 'codexbar.exe'
     Set-Content -LiteralPath $defaultApp -Value ''
-    Assert-Equal -Actual (Resolve-CodexBarAppPath -ConfiguredPath '' -LocalAppData $resolverRoot) -Expected $defaultApp -Name 'default app install path'
+    Assert-Equal -Actual (Resolve-CodexBarAppPath -ConfiguredPath '' -LocalAppData $resolverRoot) -Expected ([IO.Path]::GetFullPath($defaultApp)) -Name 'default app install path'
 
     Remove-Item -LiteralPath $defaultCli,$defaultApp -Force
     $pathCli = Join-Path $pathDirectory 'codexbar-cli.exe'
     Set-Content -LiteralPath $pathCli -Value ''
     $env:PATH = $pathDirectory
-    Assert-Equal -Actual (Resolve-CodexBarCliPath -ConfiguredPath '' -LocalAppData $resolverRoot) -Expected $pathCli -Name 'PATH CLI fallback'
+    Assert-Equal -Actual (Resolve-CodexBarCliPath -ConfiguredPath '' -LocalAppData $resolverRoot) -Expected ([IO.Path]::GetFullPath($pathCli)) -Name 'PATH CLI fallback'
 
     Remove-Item -LiteralPath $pathCli -Force
     $env:PATH = ''
