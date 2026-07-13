@@ -36,9 +36,16 @@ function Test-ProcessCommandTargetsScript {
     if ([string]::IsNullOrWhiteSpace($CommandLine)) { return $false }
     $fullPath = [IO.Path]::GetFullPath($ScriptPath)
     $tokens = @(Split-CommandLineTokens -CommandLine $CommandLine)
+    $commandParameterNames = @('Command', 'EncodedCommand', 'CommandWithArgs', 'EncodedArguments')
     for ($index = 1; $index -lt $tokens.Count; $index++) {
         $token = $tokens[$index]
-        if ($token -in @('-Command', '-c', '-EncodedCommand', '-e', '-ec')) { return $false }
+        if ($token.Length -gt 1 -and ($token.StartsWith('-') -or $token.StartsWith('/'))) {
+            $parameterName = $token.Substring(1)
+            if ([string]::Equals($parameterName, 'ec', [StringComparison]::OrdinalIgnoreCase)) { return $false }
+            foreach ($commandParameterName in $commandParameterNames) {
+                if ($commandParameterName.StartsWith($parameterName, [StringComparison]::OrdinalIgnoreCase)) { return $false }
+            }
+        }
         if ($token -notin @('-File', '-f')) { continue }
         if ($index + 1 -ge $tokens.Count) { return $false }
         try {

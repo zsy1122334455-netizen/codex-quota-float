@@ -17,7 +17,14 @@ $commandBoundaryCases = @(
     'powershell.exe -c Write-Output -File "C:\Users\Public\CodexQuotaFloat\CodexQuotaFloat.ps1"',
     'powershell.exe -EncodedCommand AAAA -File "C:\Users\Public\CodexQuotaFloat\CodexQuotaFloat.ps1"',
     'powershell.exe -e AAAA -File "C:\Users\Public\CodexQuotaFloat\CodexQuotaFloat.ps1"',
-    'powershell.exe -ec AAAA -File "C:\Users\Public\CodexQuotaFloat\CodexQuotaFloat.ps1"'
+    'powershell.exe -ec AAAA -File "C:\Users\Public\CodexQuotaFloat\CodexQuotaFloat.ps1"',
+    'powershell.exe -Com Write-Output -File "C:\Users\Public\CodexQuotaFloat\CodexQuotaFloat.ps1"',
+    'powershell.exe -Co Write-Output -File "C:\Users\Public\CodexQuotaFloat\CodexQuotaFloat.ps1"',
+    'powershell.exe -Comm Write-Output -File "C:\Users\Public\CodexQuotaFloat\CodexQuotaFloat.ps1"',
+    'powershell.exe -Enc AAAA -File "C:\Users\Public\CodexQuotaFloat\CodexQuotaFloat.ps1"',
+    'powershell.exe /Com Write-Output -File "C:\Users\Public\CodexQuotaFloat\CodexQuotaFloat.ps1"',
+    'pwsh.exe -CommandW payload -File "C:\Users\Public\CodexQuotaFloat\CodexQuotaFloat.ps1"',
+    'pwsh.exe -EncodedA payload -File "C:\Users\Public\CodexQuotaFloat\CodexQuotaFloat.ps1"'
 )
 
 if (-not (Test-ProcessCommandTargetsScript -CommandLine $exact -ScriptPath $target)) { throw 'FAIL: exact installed script was not matched.' }
