@@ -1,0 +1,17 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Codex Quota Float icon">
+  <defs>
+    <linearGradient id="g" x1="18" y1="18" x2="110" y2="110" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#57D7C4"/>
+      <stop offset="0.52" stop-color="#6D5EF7"/>
+      <stop offset="1" stop-color="#FF7AA2"/>
+    </linearGradient>
+    <filter id="s" x="0" y="0" width="128" height="128" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#30334A" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <rect x="18" y="18" width="92" height="92" rx="24" fill="url(#g)" filter="url(#s)"/>
+  <path d="M39 80h50" stroke="white" stroke-width="8" stroke-linecap="round" opacity="0.92"/>
+  <path d="M39 64h34" stroke="white" stroke-width="8" stroke-linecap="round" opacity="0.72"/>
+  <path d="M39 48h21" stroke="white" stroke-width="8" stroke-linecap="round" opacity="0.52"/>
+  <circle cx="88" cy="48" r="8" fill="white"/>
+</svg>

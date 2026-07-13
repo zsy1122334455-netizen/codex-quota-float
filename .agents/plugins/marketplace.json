@@ -1,0 +1,20 @@
+{
+  "name": "codex-quota-float",
+  "interface": {
+    "displayName": "Codex Quota Float"
+  },
+  "plugins": [
+    {
+      "name": "codex-quota-float",
+      "source": {
+        "source": "local",
+        "path": "./plugins/codex-quota-float"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

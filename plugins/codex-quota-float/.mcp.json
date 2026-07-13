@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "codex-quota-float": {
+      "command": "node",
+      "args": [
+        "./mcp/server.mjs"
+      ],
+      "cwd": "."
+    }
+  }
+}

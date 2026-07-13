@@ -1,0 +1,38 @@
+{
+  "name": "codex-quota-float",
+  "version": "0.1.0",
+  "description": "Show official Codex quota in a compact Windows widget.",
+  "author": {
+    "name": "Codex Quota Float contributors"
+  },
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "quota",
+    "usage",
+    "status",
+    "dashboard"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Codex Quota Float",
+    "shortDescription": "Keep official Codex quota visible in a compact widget.",
+    "longDescription": "Codex Quota Float reads official Codex rate-limit snapshots without reading authentication files or task content. It displays remaining percentages in an always-on-top Windows widget, refreshes silently, remembers its position, and clearly labels cached fallback values.",
+    "developerName": "Codex Quota Float contributors",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Interactive"
+    ],
+    "defaultPrompt": [
+      "Check my Codex quota status.",
+      "Open the Codex quota widget.",
+      "Show my official remaining quota and reset time."
+    ],
+    "brandColor": "#18896F",
+    "composerIcon": "./assets/icon.svg",
+    "logo": "./assets/logo.svg",
+    "screenshots": []
+  }
+}
