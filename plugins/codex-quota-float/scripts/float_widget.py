@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import ctypes
 import datetime as dt
 import json
 import os
@@ -48,18 +47,6 @@ def percent_text(value: object) -> str:
         return f"{float(value):.0f}%"
     except (TypeError, ValueError):
         return "--"
-
-
-def enable_dpi_awareness() -> None:
-    if os.name != "nt":
-        return
-    try:
-        ctypes.windll.shcore.SetProcessDpiAwareness(2)
-    except (AttributeError, OSError):
-        try:
-            ctypes.windll.user32.SetProcessDPIAware()
-        except (AttributeError, OSError):
-            pass
 
 
 def ensure_panel_server() -> None:
@@ -420,19 +407,11 @@ class QuotaFloatWidget:
             font=("Segoe UI", 12, "bold"),
         )
 
-        label = friendly_limit_label(primary)
+        window = primary.get("window") or "额度周期"
+        label = f"Codex · {window}" if primary.get("limitId") == "codex" else friendly_limit_label(primary)
         reset = primary.get("resetLabel") or "重置时间未知"
         self.canvas.create_text(65, 18, text=label, fill=INK, font=("Microsoft YaHei UI", 10, "bold"), anchor="w")
         self.canvas.create_text(65, 43, text=reset, fill=MUTED, font=("Microsoft YaHei UI", 8), anchor="w")
-        source_label = source_status_text(official_status)
-        self.canvas.create_text(
-            EXPANDED_WIDTH - 9,
-            43,
-            text=source_label,
-            fill=GREEN if official_status == "available" else STALE,
-            font=("Microsoft YaHei UI", 7, "bold"),
-            anchor="e",
-        )
 
         dot_color = GREEN if official_status == "available" else STALE if official_status == "stale" else RED
         self.canvas.create_oval(EXPANDED_WIDTH - 14, 7, EXPANDED_WIDTH - 7, 14, fill=dot_color, outline=SURFACE, width=1)
@@ -558,7 +537,6 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        enable_dpi_awareness()
         app = QuotaFloatWidget(args.refresh_seconds)
         app.run()
     except Exception as exc:
