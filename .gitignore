@@ -1,0 +1,12 @@
+.worktrees/
+.superpowers/
+last_usage.json
+settings.json
+*.log
+*.tmp
+dist/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+design/
