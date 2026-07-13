@@ -4,7 +4,7 @@ $installer = Join-Path $root 'install.ps1'
 $uninstaller = Join-Path $root 'uninstall.ps1'
 $target = Join-Path $env:TEMP ('CodexQuotaFloat-install-' + [guid]::NewGuid().ToString('N'))
 $runName = 'CodexQuotaFloatTest-' + [guid]::NewGuid().ToString('N')
-$runPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+$runPath = 'HKCU:\Software\CodexQuotaFloatTests\' + [guid]::NewGuid().ToString('N') + '\Run'
 $uninstallLogId = [guid]::NewGuid().ToString('N')
 $uninstallStdout = Join-Path $env:TEMP ('CodexQuotaFloat-uninstall-' + $uninstallLogId + '.out.log')
 $uninstallStderr = Join-Path $env:TEMP ('CodexQuotaFloat-uninstall-' + $uninstallLogId + '.err.log')
@@ -15,7 +15,7 @@ $cleanupScript = $null
 # unknown script parameters in $args, which would let the legacy installer touch
 # the live APPDATA target despite this test passing TEMP arguments.
 $installerParameters = (Get-Command -Name $installer -ErrorAction Stop).Parameters.Keys
-foreach ($requiredParameter in @('TargetDirectory', 'RunValueName', 'NoLaunch')) {
+foreach ($requiredParameter in @('TargetDirectory', 'RunValueName', 'RunPath', 'NoLaunch')) {
     if ($requiredParameter -notin $installerParameters) {
         throw "FAIL: installer is missing isolation parameter -$requiredParameter."
     }
@@ -23,7 +23,7 @@ foreach ($requiredParameter in @('TargetDirectory', 'RunValueName', 'NoLaunch'))
 if (-not (Test-Path -LiteralPath $uninstaller)) { throw 'FAIL: uninstall.ps1 is missing.' }
 
 try {
-    & $installer -TargetDirectory $target -RunValueName $runName -NoLaunch
+    & $installer -TargetDirectory $target -RunValueName $runName -RunPath $runPath -NoLaunch
     foreach ($file in @('CodexQuotaFloat.ps1','QuotaData.psm1','Lifecycle.psm1','run-hidden.vbs','install.ps1','uninstall.ps1')) {
         if (-not (Test-Path -LiteralPath (Join-Path $target $file))) { throw "FAIL: installer did not copy $file." }
     }
@@ -42,7 +42,9 @@ try {
         '-TargetDirectory',
         ('"' + $target + '"'),
         '-RunValueName',
-        $runName
+        $runName,
+        '-RunPath',
+        ('"' + $runPath + '"')
     ) -WorkingDirectory $target -WindowStyle Hidden -RedirectStandardOutput $uninstallStdout -RedirectStandardError $uninstallStderr -PassThru
     $cleanupScript = Join-Path $env:TEMP ("CodexQuotaFloat-uninstall-cleanup-$($uninstallProcess.Id).ps1")
     if (-not $uninstallProcess.WaitForExit(10000)) { throw 'FAIL: installed uninstaller did not exit.' }
@@ -61,8 +63,8 @@ try {
     }
     if (Test-Path -LiteralPath $cleanupScript) { throw 'FAIL: uninstall cleanup script did not remove itself.' }
 
-    & $installer -TargetDirectory $target -RunValueName $runName -NoLaunch
-    & $uninstaller -TargetDirectory $target -RunValueName $runName
+    & $installer -TargetDirectory $target -RunValueName $runName -RunPath $runPath -NoLaunch
+    & $uninstaller -TargetDirectory $target -RunValueName $runName -RunPath $runPath
     if (Test-Path -LiteralPath $target) { throw 'FAIL: source uninstaller did not synchronously remove the target directory.' }
     if ($null -ne (Get-ItemProperty -Path $runPath -Name $runName -ErrorAction SilentlyContinue)) { throw 'FAIL: source uninstaller left the startup value behind.' }
 }
@@ -72,6 +74,7 @@ finally {
         if (-not $uninstallProcess.HasExited) { Stop-Process -Id $uninstallProcess.Id -Force }
     }
     Remove-ItemProperty -Path $runPath -Name $runName -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $runPath -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $uninstallStdout,$uninstallStderr -Force -ErrorAction SilentlyContinue
     if ($null -ne $cleanupScript) { Remove-Item -LiteralPath $cleanupScript -Force -ErrorAction SilentlyContinue }

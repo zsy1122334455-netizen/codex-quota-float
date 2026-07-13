@@ -1,15 +1,15 @@
 param(
     [string]$TargetDirectory = (Join-Path $env:APPDATA 'CodexQuotaFloat'),
-    [string]$RunValueName = 'CodexQuotaFloat'
+    [string]$RunValueName = 'CodexQuotaFloat',
+    [string]$RunPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
 )
 $ErrorActionPreference = 'Stop'
-$runPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
 $modulePath = Join-Path $PSScriptRoot 'Lifecycle.psm1'
 if (-not (Test-Path -LiteralPath $modulePath)) { $modulePath = Join-Path $TargetDirectory 'Lifecycle.psm1' }
 Import-Module $modulePath -Force
 
 [void](Stop-CodexQuotaFloatInstance -ScriptPath (Join-Path $TargetDirectory 'CodexQuotaFloat.ps1'))
-Remove-ItemProperty -Path $runPath -Name $RunValueName -ErrorAction SilentlyContinue
+Remove-ItemProperty -Path $RunPath -Name $RunValueName -ErrorAction SilentlyContinue
 if (Test-Path -LiteralPath $TargetDirectory) {
     $fullTarget = [IO.Path]::GetFullPath($TargetDirectory)
     $appDataPrefix = [IO.Path]::GetFullPath($env:APPDATA).TrimEnd('\') + '\'
