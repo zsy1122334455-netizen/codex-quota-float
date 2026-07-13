@@ -168,4 +168,33 @@ $expectedCompactReset = -join (@(54,22825,49,48,23567,26102,21518,37325,32622) |
 Assert-Equal -Actual (Format-QuotaResetText -Raw '6d 10h') -Expected $expectedCompactReset -Name 'compact Chinese reset text'
 Assert-Equal -Actual (Format-QuotaResetText -Raw '') -Expected '--' -Name 'empty reset text fallback'
 
+foreach ($commandName in @('Resolve-CodexBarCliPath', 'Resolve-CodexBarAppPath')) {
+    if (-not (Get-Command $commandName -ErrorAction SilentlyContinue)) {
+        throw "FAIL: $commandName is not defined."
+    }
+}
+
+$resolverRoot = Join-Path $env:TEMP ('CodexQuotaFloat-resolver-' + [guid]::NewGuid().ToString('N'))
+$defaultDirectory = Join-Path $resolverRoot 'Programs\CodexBar'
+New-Item -ItemType Directory -Path $defaultDirectory -Force | Out-Null
+try {
+    $configuredCli = Join-Path $resolverRoot 'custom-codexbar-cli.exe'
+    Set-Content -LiteralPath $configuredCli -Value ''
+    Assert-Equal -Actual (Resolve-CodexBarCliPath -ConfiguredPath $configuredCli -LocalAppData $resolverRoot) -Expected $configuredCli -Name 'configured CLI path wins'
+
+    $defaultCli = Join-Path $defaultDirectory 'codexbar-cli.exe'
+    Set-Content -LiteralPath $defaultCli -Value ''
+    Assert-Equal -Actual (Resolve-CodexBarCliPath -ConfiguredPath '' -LocalAppData $resolverRoot) -Expected $defaultCli -Name 'default CLI install path'
+
+    $defaultApp = Join-Path $defaultDirectory 'codexbar.exe'
+    Set-Content -LiteralPath $defaultApp -Value ''
+    Assert-Equal -Actual (Resolve-CodexBarAppPath -ConfiguredPath '' -LocalAppData $resolverRoot) -Expected $defaultApp -Name 'default app install path'
+
+    Remove-Item -LiteralPath $defaultCli,$defaultApp -Force
+    Assert-Equal -Actual (Resolve-CodexBarCliPath -ConfiguredPath '' -LocalAppData $resolverRoot) -Expected $null -Name 'missing CLI returns null'
+}
+finally {
+    Remove-Item -LiteralPath $resolverRoot -Recurse -Force -ErrorAction SilentlyContinue
+}
+
 Write-Host 'PASS: usage parsing and remaining percentage conversion.'

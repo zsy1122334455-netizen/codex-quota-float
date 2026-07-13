@@ -12,8 +12,8 @@ if (-not $mutexCreated) { exit 0 }
 $appDirectory = Join-Path $env:APPDATA 'CodexQuotaFloat'
 $settingsPath = Join-Path $appDirectory 'settings.json'
 $cachePath = Join-Path $appDirectory 'last_usage.json'
-$cliPath = Join-Path $env:LOCALAPPDATA 'Programs\CodexBar\codexbar-cli.exe'
-$codexBarPath = Join-Path $env:LOCALAPPDATA 'Programs\CodexBar\codexbar.exe'
+$cliPath = Resolve-CodexBarCliPath
+$codexBarPath = Resolve-CodexBarAppPath
 
 New-Item -ItemType Directory -Path $appDirectory -Force | Out-Null
 
@@ -239,7 +239,7 @@ function Render-Widget {
 
 function Start-QuotaRefresh {
     if ($null -ne $script:refreshJob) { return }
-    if (-not (Test-Path -LiteralPath $cliPath)) {
+    if ([string]::IsNullOrWhiteSpace($cliPath) -or -not (Test-Path -LiteralPath $cliPath)) {
         $script:stale = $true
         Render-Widget
         return
@@ -300,7 +300,7 @@ $menu = New-Object System.Windows.Controls.ContextMenu
 foreach ($item in @(
     @{ Text = Get-QuotaText -Key 'Refresh'; Action = { Start-QuotaRefresh } },
     @{ Text = Get-QuotaText -Key 'StartAtLogin'; Action = { & (Join-Path $PSScriptRoot 'install.ps1') -RegisterOnly } },
-    @{ Text = Get-QuotaText -Key 'OpenDetails'; Action = { if (Test-Path -LiteralPath $codexBarPath) { Start-Process $codexBarPath } } },
+    @{ Text = Get-QuotaText -Key 'OpenDetails'; Action = { if (-not [string]::IsNullOrWhiteSpace($codexBarPath) -and (Test-Path -LiteralPath $codexBarPath)) { Start-Process $codexBarPath } } },
     @{ Text = Get-QuotaText -Key 'Exit'; Action = { $window.Close() } }
 )) {
     $menuItem = New-Object System.Windows.Controls.MenuItem

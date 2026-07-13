@@ -70,6 +70,13 @@ if ($source -match '\$window\.Add_Deactivated') {
     throw 'FAIL: V2 expanded card must stay open until the user clicks it again.'
 }
 
+if ($source -notmatch '\$cliPath\s*=\s*Resolve-CodexBarCliPath') {
+    throw 'FAIL: widget must resolve the CodexBar CLI path.'
+}
+if ($source -notmatch '\$codexBarPath\s*=\s*Resolve-CodexBarAppPath') {
+    throw 'FAIL: widget must resolve the CodexBar app path.'
+}
+
 foreach ($interactionPattern in @(
     '\$window\.Topmost\s*=\s*\$true',
     '\$window\.Add_MouseMove',

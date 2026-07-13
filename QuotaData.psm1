@@ -207,4 +207,41 @@ function Format-QuotaResetText {
     return (($parts -join '') + (Get-QuotaText -Key 'ResetSuffix'))
 }
 
-Export-ModuleMember -Function ConvertTo-QuotaViewModel, Get-QuotaColor, Save-CachedQuotaViewModel, Get-CachedQuotaViewModel, Get-QuotaText, Get-VisibleWindowPosition, Get-ExpandedWidgetHeight, Get-ProgressArcMetrics, Format-QuotaResetText
+function Resolve-CodexBarExecutablePath {
+    param(
+        [AllowNull()][AllowEmptyString()][string]$ConfiguredPath,
+        [AllowNull()][AllowEmptyString()][string]$LocalAppData,
+        [Parameter(Mandatory)][string]$FileName
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($ConfiguredPath) -and (Test-Path -LiteralPath $ConfiguredPath -PathType Leaf)) {
+        return [IO.Path]::GetFullPath($ConfiguredPath)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($LocalAppData)) {
+        $defaultPath = Join-Path $LocalAppData (Join-Path 'Programs\CodexBar' $FileName)
+        if (Test-Path -LiteralPath $defaultPath -PathType Leaf) { return [IO.Path]::GetFullPath($defaultPath) }
+    }
+
+    $command = Get-Command $FileName -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($null -ne $command) { return [IO.Path]::GetFullPath($command.Source) }
+    return $null
+}
+
+function Resolve-CodexBarCliPath {
+    param(
+        [AllowNull()][AllowEmptyString()][string]$ConfiguredPath = $env:CODEXBAR_CLI_PATH,
+        [AllowNull()][AllowEmptyString()][string]$LocalAppData = $env:LOCALAPPDATA
+    )
+    Resolve-CodexBarExecutablePath -ConfiguredPath $ConfiguredPath -LocalAppData $LocalAppData -FileName 'codexbar-cli.exe'
+}
+
+function Resolve-CodexBarAppPath {
+    param(
+        [AllowNull()][AllowEmptyString()][string]$ConfiguredPath = $env:CODEXBAR_APP_PATH,
+        [AllowNull()][AllowEmptyString()][string]$LocalAppData = $env:LOCALAPPDATA
+    )
+    Resolve-CodexBarExecutablePath -ConfiguredPath $ConfiguredPath -LocalAppData $LocalAppData -FileName 'codexbar.exe'
+}
+
+Export-ModuleMember -Function ConvertTo-QuotaViewModel, Get-QuotaColor, Save-CachedQuotaViewModel, Get-CachedQuotaViewModel, Get-QuotaText, Get-VisibleWindowPosition, Get-ExpandedWidgetHeight, Get-ProgressArcMetrics, Format-QuotaResetText, Resolve-CodexBarCliPath, Resolve-CodexBarAppPath
