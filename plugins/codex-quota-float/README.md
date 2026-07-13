@@ -19,7 +19,7 @@ Start the widget:
 powershell -ExecutionPolicy Bypass -File .\scripts\start_float.ps1
 ```
 
-The widget starts as a compact 64 px quota ring. Single-click it to expand a 244 x 96 px summary of the shared Codex quota, used percentage, plan, and data freshness; model-specific buckets are kept out of this compact view. Double-click opens a full detail window grouped into shared quota, independently metered model quota, and an explanation of the quota structure. Dragging never toggles the view, and the widget remembers its screen position.
+The widget starts as a compact 64 px quota ring. Single-click it to expand a 244 x 64 px summary containing only the shared Codex quota, reset time, and data freshness. Model-specific buckets appear only in the double-click detail window. Dragging never toggles the view, and the widget remembers its screen position.
 
 Stop it:
 

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
 import datetime as dt
 import json
 import os
@@ -27,7 +28,7 @@ ERROR_LOG = Path.home() / ".codex" / "quota-float-widget.log"
 
 COMPACT_SIZE = 64
 EXPANDED_WIDTH = 244
-EXPANDED_HEIGHT = 96
+EXPANDED_HEIGHT = 64
 TRANSPARENT = "#FF00FF"
 SURFACE = "#FAFBFB"
 INK = "#172127"
@@ -47,6 +48,18 @@ def percent_text(value: object) -> str:
         return f"{float(value):.0f}%"
     except (TypeError, ValueError):
         return "--"
+
+
+def enable_dpi_awareness() -> None:
+    if os.name != "nt":
+        return
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+    except (AttributeError, OSError):
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except (AttributeError, OSError):
+            pass
 
 
 def ensure_panel_server() -> None:
@@ -332,6 +345,42 @@ class QuotaFloatWidget:
                 width=width,
             )
 
+    def draw_rounded_panel(self, x1: int, y1: int, x2: int, y2: int, radius: int) -> None:
+        points = [
+            x1 + radius,
+            y1,
+            x2 - radius,
+            y1,
+            x2,
+            y1,
+            x2,
+            y1 + radius,
+            x2,
+            y2 - radius,
+            x2,
+            y2,
+            x2 - radius,
+            y2,
+            x1 + radius,
+            y2,
+            x1,
+            y2,
+            x1,
+            y2 - radius,
+            x1,
+            y1 + radius,
+            x1,
+            y1,
+        ]
+        self.canvas.create_polygon(
+            points,
+            smooth=True,
+            splinesteps=24,
+            fill=SURFACE,
+            outline=LINE,
+            width=1,
+        )
+
     def draw(self) -> None:
         self.canvas.delete("all")
         if self.expanded:
@@ -361,11 +410,11 @@ class QuotaFloatWidget:
         percent = primary.get("remainingPercent")
         official_status = self.status.get("officialQuota", {}).get("status")
 
-        self.canvas.create_rectangle(1, 1, EXPANDED_WIDTH - 2, EXPANDED_HEIGHT - 2, fill=SURFACE, outline=LINE)
-        self.draw_ring(34, 33, 25, percent, 5)
+        self.draw_rounded_panel(1, 1, EXPANDED_WIDTH - 2, EXPANDED_HEIGHT - 2, 7)
+        self.draw_ring(32, 32, 25, percent, 5)
         self.canvas.create_text(
-            34,
-            33,
+            32,
+            32,
             text=percent_text(percent),
             fill=INK,
             font=("Segoe UI", 12, "bold"),
@@ -373,23 +422,15 @@ class QuotaFloatWidget:
 
         label = friendly_limit_label(primary)
         reset = primary.get("resetLabel") or "重置时间未知"
-        self.canvas.create_text(69, 18, text=label, fill=INK, font=("Microsoft YaHei UI", 10, "bold"), anchor="w")
-        self.canvas.create_text(69, 43, text=reset, fill=MUTED, font=("Microsoft YaHei UI", 8), anchor="w")
-        self.canvas.create_line(10, 65, EXPANDED_WIDTH - 10, 65, fill="#E1E5E7")
-
-        used = primary.get("usedPercent")
-        plan = str(self.status.get("plan") or "").upper()
-        usage_label = f"已用 {used}%" if used is not None else "用量未知"
-        if plan:
-            usage_label += f" · {plan}"
+        self.canvas.create_text(65, 18, text=label, fill=INK, font=("Microsoft YaHei UI", 10, "bold"), anchor="w")
+        self.canvas.create_text(65, 43, text=reset, fill=MUTED, font=("Microsoft YaHei UI", 8), anchor="w")
         source_label = source_status_text(official_status)
-        self.canvas.create_text(11, 81, text=usage_label, fill="#525D66", font=("Microsoft YaHei UI", 8), anchor="w")
         self.canvas.create_text(
-            EXPANDED_WIDTH - 11,
-            81,
+            EXPANDED_WIDTH - 9,
+            43,
             text=source_label,
             fill=GREEN if official_status == "available" else STALE,
-            font=("Microsoft YaHei UI", 8, "bold"),
+            font=("Microsoft YaHei UI", 7, "bold"),
             anchor="e",
         )
 
@@ -517,6 +558,7 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
+        enable_dpi_awareness()
         app = QuotaFloatWidget(args.refresh_seconds)
         app.run()
     except Exception as exc:
