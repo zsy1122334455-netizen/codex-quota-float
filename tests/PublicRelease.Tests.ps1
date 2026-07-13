@@ -1,10 +1,10 @@
-$ErrorActionPreference = 'Stop'
+ï»¿$ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 foreach ($file in @('.gitignore','LICENSE','THIRD_PARTY_NOTICES.md','README.md','assets\hero.png','assets\widget-compact.png','assets\widget-expanded.png','tests\run-tests.ps1','.github\workflows\test.yml')) {
     if (-not (Test-Path -LiteralPath (Join-Path $root $file))) { throw "FAIL: public file is missing: $file" }
 }
 $readme = [IO.File]::ReadAllText((Join-Path $root 'README.md'), [Text.Encoding]::UTF8)
-foreach ($required in @('·Ç¹Ù·½','Win-CodexBar','winget install Finesssee.Win-CodexBar','CODEXBAR_CLI_PATH','°²×°','¸üĞÂ','Ğ¶ÔØ','ÒşË½','¹ÊÕÏÅÅ²é')) {
+foreach ($required in @('éå®˜æ–¹','Win-CodexBar','winget install Finesssee.Win-CodexBar','CODEXBAR_CLI_PATH','å®‰è£…','æ›´æ–°','å¸è½½','éšç§','æ•…éšœæ’æŸ¥')) {
     if ($readme -notmatch [regex]::Escape($required)) { throw "FAIL: README is missing '$required'." }
 }
 $license = [IO.File]::ReadAllText((Join-Path $root 'LICENSE'), [Text.Encoding]::UTF8)
