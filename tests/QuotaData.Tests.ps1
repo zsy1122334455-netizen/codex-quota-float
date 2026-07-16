@@ -12,6 +12,20 @@ function Assert-Equal {
     }
 }
 
+function Assert-Throws {
+    param(
+        [Parameter(Mandatory)][scriptblock]$Action,
+        [Parameter(Mandatory)][string]$MessagePattern,
+        [Parameter(Mandatory)][string]$Name
+    )
+
+    $caught = $null
+    try { & $Action } catch { $caught = $_.Exception.Message }
+    if ($null -eq $caught -or $caught -notmatch $MessagePattern) {
+        throw "FAIL: $Name. Expected an error matching '$MessagePattern', got '$caught'."
+    }
+}
+
 $modulePath = Join-Path $PSScriptRoot '..\QuotaData.psm1'
 Import-Module $modulePath -Force
 
@@ -27,11 +41,13 @@ $fixture = @'
       "login_method": "ChatGPT Pro",
       "primary": {
         "used_percent": 34.0,
-        "reset_description": "3h 14m"
+        "reset_description": "3h 14m",
+        "window_minutes": 300
       },
       "secondary": {
         "used_percent": 5.0,
-        "reset_description": "6d 22h"
+        "reset_description": "6d 22h",
+        "window_minutes": 10080
       },
       "updated_at": "2026-07-11T02:08:42Z"
     }
@@ -41,10 +57,26 @@ $fixture = @'
 
 $model = ConvertTo-QuotaViewModel -CliJson $fixture
 Assert-Equal -Actual $model.Plan -Expected 'ChatGPT Pro' -Name 'plan name'
-Assert-Equal -Actual $model.PrimaryRemaining -Expected 66 -Name 'primary remaining percentage'
-Assert-Equal -Actual $model.PrimaryReset -Expected '3h 14m' -Name 'primary reset time'
+Assert-Equal -Actual $model.SchemaVersion -Expected 3 -Name 'weekly-only cache schema'
+Assert-Equal -Actual $model.HasWeekly -Expected $true -Name 'mixed 5-hour and weekly payload has a weekly window'
 Assert-Equal -Actual $model.WeeklyRemaining -Expected 95 -Name 'weekly remaining percentage'
 Assert-Equal -Actual $model.WeeklyReset -Expected '6d 22h' -Name 'weekly reset time'
+Assert-Equal -Actual $model.DisplayRemaining -Expected 95 -Name 'floating ball uses weekly remaining'
+Assert-Equal -Actual $model.PSObject.Properties['PrimaryRemaining'] -Expected $null -Name 'weekly model omits 5-hour remaining'
+
+$legacyFixture = @'
+[
+  {
+    "provider": "codex",
+    "usage": {
+      "primary": { "used_percent": 34.0, "reset_description": "3h 14m" },
+      "secondary": { "used_percent": 5.0, "reset_description": "6d 22h" }
+    }
+  }
+]
+'@
+$legacyModel = ConvertTo-QuotaViewModel -CliJson $legacyFixture
+Assert-Equal -Actual $legacyModel.WeeklyRemaining -Expected 95 -Name 'legacy positional weekly remaining'
 
 $weeklyOnlyFixture = @'
 [
@@ -77,12 +109,27 @@ $weeklyOnlyFixture = @'
 '@
 
 $weeklyOnlyModel = ConvertTo-QuotaViewModel -CliJson $weeklyOnlyFixture
-Assert-Equal -Actual $weeklyOnlyModel.HasPrimary -Expected $false -Name 'weekly-only payload has no 5-hour window'
-Assert-Equal -Actual $weeklyOnlyModel.PrimaryRemaining -Expected $null -Name 'weekly-only payload does not invent 5-hour remaining'
 Assert-Equal -Actual $weeklyOnlyModel.HasWeekly -Expected $true -Name 'weekly-only payload has a weekly window'
 Assert-Equal -Actual $weeklyOnlyModel.WeeklyRemaining -Expected 82 -Name 'weekly-only payload maps 7-day window by duration'
 Assert-Equal -Actual $weeklyOnlyModel.WeeklyReset -Expected '6d 11h' -Name 'weekly-only reset time'
-Assert-Equal -Actual $weeklyOnlyModel.DisplayRemaining -Expected 82 -Name 'floating ball falls back to weekly remaining'
+Assert-Equal -Actual $weeklyOnlyModel.DisplayRemaining -Expected 82 -Name 'floating ball uses weekly remaining'
+
+$fiveHourOnlyFixture = @'
+[
+  {
+    "provider": "codex",
+    "usage": {
+      "primary": {
+        "used_percent": 34.0,
+        "reset_description": "3h 14m",
+        "window_minutes": 300
+      },
+      "updated_at": "2026-07-13T10:37:35Z"
+    }
+  }
+]
+'@
+Assert-Throws -Action { ConvertTo-QuotaViewModel -CliJson $fiveHourOnlyFixture } -MessagePattern 'weekly quota window' -Name '5-hour-only payload is not relabeled as weekly total'
 
 if (-not (Get-Command Get-QuotaColor -ErrorAction SilentlyContinue)) {
     throw 'FAIL: Get-QuotaColor is not defined.'
@@ -103,18 +150,18 @@ $cachePath = Join-Path $env:TEMP 'CodexQuotaFloat-test-cache.json'
 Remove-Item $cachePath -Force -ErrorAction SilentlyContinue
 Save-CachedQuotaViewModel -Model $model -Path $cachePath
 $cached = Get-CachedQuotaViewModel -Path $cachePath
-Assert-Equal -Actual $cached.PrimaryRemaining -Expected 66 -Name 'cached primary remaining percentage'
 Assert-Equal -Actual $cached.WeeklyRemaining -Expected 95 -Name 'cached weekly remaining percentage'
 Remove-Item $cachePath -Force -ErrorAction SilentlyContinue
 
 $legacyCachePath = Join-Path $env:TEMP 'CodexQuotaFloat-test-legacy-cache.json'
 @{
+    SchemaVersion = 2
     Plan = 'ChatGPT Pro'
     PrimaryRemaining = 0
     WeeklyRemaining = 42
 } | ConvertTo-Json | Set-Content -Path $legacyCachePath -Encoding UTF8
 $legacyCached = Get-CachedQuotaViewModel -Path $legacyCachePath
-Assert-Equal -Actual $legacyCached -Expected $null -Name 'legacy positional cache is rejected'
+Assert-Equal -Actual $legacyCached -Expected $null -Name 'schema 2 cache is rejected'
 Remove-Item $legacyCachePath -Force -ErrorAction SilentlyContinue
 
 if (-not (Get-Command Get-QuotaText -ErrorAction SilentlyContinue)) {

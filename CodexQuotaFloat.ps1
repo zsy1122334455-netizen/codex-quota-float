@@ -3,6 +3,44 @@ Add-Type -AssemblyName PresentationFramework
 Add-Type -AssemblyName PresentationCore
 Add-Type -AssemblyName WindowsBase
 
+Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+
+public static class CodexQuotaFloatNative {
+    public static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+    public const int GWL_EXSTYLE = -20;
+    public const long WS_EX_TOPMOST = 0x00000008L;
+    public const uint SWP_NOSIZE = 0x0001;
+    public const uint SWP_NOMOVE = 0x0002;
+    public const uint SWP_NOACTIVATE = 0x0010;
+    public const uint SWP_NOOWNERZORDER = 0x0200;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool SetWindowPos(
+        IntPtr hWnd,
+        IntPtr hWndInsertAfter,
+        int x,
+        int y,
+        int cx,
+        int cy,
+        uint flags
+    );
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtr", SetLastError = true)]
+    private static extern IntPtr GetWindowLongPtr64(IntPtr hWnd, int index);
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLong", SetLastError = true)]
+    private static extern IntPtr GetWindowLongPtr32(IntPtr hWnd, int index);
+
+    public static IntPtr GetWindowLongPtr(IntPtr hWnd, int index) {
+        return IntPtr.Size == 8
+            ? GetWindowLongPtr64(hWnd, index)
+            : GetWindowLongPtr32(hWnd, index);
+    }
+}
+'@
+
 Import-Module (Join-Path $PSScriptRoot 'QuotaData.psm1') -Force
 
 $mutexCreated = $false
@@ -191,7 +229,6 @@ function Render-Widget {
         }
         $visibleRowCount = 0
         if ($null -ne $script:model) {
-            if ($script:model.HasPrimary) { $visibleRowCount++ }
             if ($script:model.HasWeekly) { $visibleRowCount++ }
         }
         $expandedHeight = Get-ExpandedWidgetHeight -VisibleRowCount $visibleRowCount
@@ -225,9 +262,6 @@ function Render-Widget {
             [void]$stack.Children.Add($message)
         }
         else {
-            if ($script:model.HasPrimary) {
-                Add-Row -Container $stack -Label (Get-QuotaText -Key 'Primary') -Remaining $script:model.PrimaryRemaining -Reset $script:model.PrimaryReset
-            }
             if ($script:model.HasWeekly) {
                 Add-Row -Container $stack -Label (Get-QuotaText -Key 'Weekly') -Remaining $script:model.WeeklyRemaining -Reset $script:model.WeeklyReset
             }
@@ -271,6 +305,52 @@ function Complete-QuotaRefresh {
     }
 }
 
+function Get-WidgetWindowHandle {
+    if ($null -eq $window) { return [IntPtr]::Zero }
+    try {
+        return [System.Windows.Interop.WindowInteropHelper]::new($window).Handle
+    }
+    catch {
+        return [IntPtr]::Zero
+    }
+}
+
+function Test-WidgetTopmost {
+    $handle = Get-WidgetWindowHandle
+    if ($handle -eq [IntPtr]::Zero) { return $false }
+    try {
+        $style = [CodexQuotaFloatNative]::GetWindowLongPtr($handle, [CodexQuotaFloatNative]::GWL_EXSTYLE).ToInt64()
+        return ($style -band [CodexQuotaFloatNative]::WS_EX_TOPMOST) -ne 0
+    }
+    catch {
+        return $false
+    }
+}
+
+function Restore-WidgetTopmost {
+    $handle = Get-WidgetWindowHandle
+    if ($handle -eq [IntPtr]::Zero) { return $false }
+    try {
+        $window.Topmost = $true
+        $flags = [CodexQuotaFloatNative]::SWP_NOSIZE -bor
+            [CodexQuotaFloatNative]::SWP_NOMOVE -bor
+            [CodexQuotaFloatNative]::SWP_NOACTIVATE -bor
+            [CodexQuotaFloatNative]::SWP_NOOWNERZORDER
+        return [CodexQuotaFloatNative]::SetWindowPos(
+            $handle,
+            [CodexQuotaFloatNative]::HWND_TOPMOST,
+            0,
+            0,
+            0,
+            0,
+            $flags
+        )
+    }
+    catch {
+        return $false
+    }
+}
+
 $settings = Get-Settings
 $workArea = [System.Windows.SystemParameters]::WorkArea
 $window = New-Object System.Windows.Window
@@ -293,12 +373,14 @@ $script:expanded = $false
 $script:compactPosition = $null
 $script:refreshJob = $null
 $script:lastRefresh = [DateTime]::MinValue
+$script:lastTopmostCheck = [DateTime]::MinValue
 $script:mouseDown = $null
 $script:moved = $false
 
 $menu = New-Object System.Windows.Controls.ContextMenu
 foreach ($item in @(
     @{ Text = Get-QuotaText -Key 'Refresh'; Action = { Start-QuotaRefresh } },
+    @{ Text = (-join @([char]37325, [char]26032, [char]32622, [char]39030)); Action = { [void](Restore-WidgetTopmost) } },
     @{ Text = Get-QuotaText -Key 'StartAtLogin'; Action = { & (Join-Path $PSScriptRoot 'install.ps1') -RegisterOnly } },
     @{ Text = Get-QuotaText -Key 'OpenDetails'; Action = { if (-not [string]::IsNullOrWhiteSpace($codexBarPath) -and (Test-Path -LiteralPath $codexBarPath)) { Start-Process $codexBarPath } } },
     @{ Text = Get-QuotaText -Key 'Exit'; Action = { $window.Close() } }
@@ -309,6 +391,13 @@ foreach ($item in @(
     [void]$menu.Items.Add($menuItem)
 }
 $window.ContextMenu = $menu
+
+$window.Add_SourceInitialized({ [void](Restore-WidgetTopmost) })
+$window.Add_Activated({ [void](Restore-WidgetTopmost) })
+$window.Add_Deactivated({ [void](Restore-WidgetTopmost) })
+$window.Add_IsVisibleChanged({
+    if ($window.IsVisible) { [void](Restore-WidgetTopmost) }
+})
 
 $window.Add_MouseLeftButtonDown({
     param($sender, $eventArgs)
@@ -344,6 +433,10 @@ $timer.Interval = [TimeSpan]::FromSeconds(1)
 $timer.Add_Tick({
     Complete-QuotaRefresh
     if ($null -eq $script:refreshJob -and ([DateTime]::UtcNow - $script:lastRefresh).TotalSeconds -ge 60) { Start-QuotaRefresh }
+    if (([DateTime]::UtcNow - $script:lastTopmostCheck).TotalSeconds -ge 5) {
+        $script:lastTopmostCheck = [DateTime]::UtcNow
+        if (-not (Test-WidgetTopmost)) { [void](Restore-WidgetTopmost) }
+    }
 })
 
 Render-Widget
