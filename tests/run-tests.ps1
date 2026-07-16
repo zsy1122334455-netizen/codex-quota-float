@@ -14,7 +14,7 @@ foreach ($test in @('QuotaData.Tests.ps1','WidgetStructure.Tests.ps1','Lifecycle
 if ($Interactive) {
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'WidgetClick.Tests.ps1')
     if ($LASTEXITCODE -ne 0) { throw 'FAIL: interactive click test failed.' }
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'CaptureWidget.ps1') -TwoRowFixture
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'CaptureWidget.ps1') -WeeklyFixture
     if ($LASTEXITCODE -ne 0) { throw 'FAIL: interactive capture test failed.' }
 }
 Write-Host 'PASS: selected CodexQuotaFloat test suite completed.'

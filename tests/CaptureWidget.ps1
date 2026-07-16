@@ -1,7 +1,7 @@
 param(
     [string]$OutputPath = (Join-Path (Split-Path -Parent $PSScriptRoot) 'design\codex-quota-float-ui-v2-actual.png'),
     [string]$CompactOutputPath = (Join-Path (Split-Path -Parent $PSScriptRoot) 'design\codex-quota-float-ui-v2-compact-actual.png'),
-    [switch]$TwoRowFixture
+    [switch]$WeeklyFixture
 )
 
 $ErrorActionPreference = 'Stop'
@@ -118,22 +118,19 @@ $originalLocalAppData = $env:LOCALAPPDATA
 $childAppData = $originalAppData
 
 try {
-    if ($TwoRowFixture) {
+    if ($WeeklyFixture) {
         $fixtureRoot = Join-Path $env:TEMP ("CodexQuotaFloat-capture-" + [guid]::NewGuid().ToString('N'))
         $childAppData = Join-Path $fixtureRoot 'AppData'
         $childLocalAppData = Join-Path $fixtureRoot 'LocalAppData'
         $fixtureAppDirectory = Join-Path $childAppData 'CodexQuotaFloat'
         New-Item -ItemType Directory -Path $fixtureAppDirectory,$childLocalAppData -Force | Out-Null
         [pscustomobject]@{
-            SchemaVersion = 2
+            SchemaVersion = 3
             Plan = 'ChatGPT Pro'
-            HasPrimary = $true
-            PrimaryRemaining = 64
-            PrimaryReset = '2h 15m'
             HasWeekly = $true
             WeeklyRemaining = 81
             WeeklyReset = '6d 9h'
-            DisplayRemaining = 64
+            DisplayRemaining = 81
             UpdatedAt = '2026-07-13T10:00:00Z'
         } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $fixtureAppDirectory 'last_usage.json') -Encoding UTF8
         $env:APPDATA = $childAppData
@@ -164,7 +161,7 @@ try {
     }
 
     $cachePath = Join-Path $childAppData 'CodexQuotaFloat\last_usage.json'
-    if (-not $TwoRowFixture) {
+    if (-not $WeeklyFixture) {
         for ($i = 0; $i -lt 100; $i++) {
             if ((Test-Path -LiteralPath $cachePath) -and (Get-Item -LiteralPath $cachePath).LastWriteTimeUtc -ge $captureStartedAt) { break }
             Start-Sleep -Milliseconds 100
@@ -173,7 +170,7 @@ try {
     Start-Sleep -Milliseconds 250
 
     $cache = Get-Content -LiteralPath $cachePath -Raw | ConvertFrom-Json
-    $visibleRows = [int][bool]$cache.HasPrimary + [int][bool]$cache.HasWeekly
+    $visibleRows = [int][bool]$cache.HasWeekly
     $expectedHeight = if ($visibleRows -le 1) { 140 } else { 210 }
     $expandedCapture = Save-LayeredWindowCapture -Handle $expandedHandle -Path $OutputPath -ExpectedWidth 250 -ExpectedHeight $expectedHeight
     Write-Output "PASS: captured compact $($compactCapture.LogicalWidth)x$($compactCapture.LogicalHeight) and expanded $($expandedCapture.LogicalWidth)x$($expandedCapture.LogicalHeight) DIP at $($expandedCapture.DpiScale)x."

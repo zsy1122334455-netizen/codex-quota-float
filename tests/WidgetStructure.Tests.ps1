@@ -21,15 +21,23 @@ if ($source -notmatch 'Get-VisibleWindowPosition') {
 }
 
 if ($source -notmatch '\$script:model\.DisplayRemaining') {
-    throw 'FAIL: the floating ball must use the best available quota window.'
+    throw 'FAIL: the floating ball must use weekly quota remaining.'
 }
 
-if ($source -notmatch 'if \(\$script:model\.HasPrimary\)') {
-    throw 'FAIL: the expanded widget must hide a missing 5-hour quota row.'
+if ($source -match 'HasPrimary|PrimaryRemaining|Get-QuotaText\s+-Key\s+''Primary''') {
+    throw 'FAIL: the weekly-only widget must not render a 5-hour quota row.'
 }
 
 if ($source -notmatch 'if \(\$script:model\.HasWeekly\)') {
     throw 'FAIL: the expanded widget must render the weekly row only when it exists.'
+}
+
+if ($source -notmatch '\$window\.Add_MouseLeftButtonUp' -or $source -notmatch '\$script:expanded\s*=\s*-not\s+\$script:expanded') {
+    throw 'FAIL: a click must toggle the weekly quota card between compact and expanded states.'
+}
+
+if ($source -notmatch '\$window\.Width\s*=\s*250;\s*\$window\.Height\s*=\s*\$expandedHeight') {
+    throw 'FAIL: the expanded weekly quota card must apply its 250-pixel width and calculated height.'
 }
 
 if ($source -notmatch '\$window\.Width\s*=\s*60;\s*\$window\.Height\s*=\s*60') {
@@ -66,8 +74,9 @@ if ($source -match '\$status\s*=\s*New-TextBlock') {
     throw 'FAIL: V2 card must encode freshness in the header dot, not a bottom status line.'
 }
 
-if ($source -match '\$window\.Add_Deactivated') {
-    throw 'FAIL: V2 expanded card must stay open until the user clicks it again.'
+$deactivatedHandler = [regex]::Match($source, '(?s)\$window\.Add_Deactivated\(\{(?<body>.*?)\}\)')
+if ($deactivatedHandler.Success -and $deactivatedHandler.Groups['body'].Value -match '\$script:expanded') {
+    throw 'FAIL: deactivation must not collapse or expand the weekly quota card.'
 }
 
 if ($source -notmatch '\$cliPath\s*=\s*Resolve-CodexBarCliPath') {
@@ -79,10 +88,17 @@ if ($source -notmatch '\$codexBarPath\s*=\s*Resolve-CodexBarAppPath') {
 
 foreach ($interactionPattern in @(
     '\$window\.Topmost\s*=\s*\$true',
+    'CodexQuotaFloatNative',
+    'SetWindowPos',
+    'Test-WidgetTopmost',
+    'Restore-WidgetTopmost',
+    '\$window\.Add_SourceInitialized',
+    '\$window\.Add_Deactivated',
     '\$window\.Add_MouseMove',
     '\$window\.DragMove\(\)',
     '\$window\.ContextMenu\s*=\s*\$menu',
     '\$window\.Add_LocationChanged',
+    'TotalSeconds\s+-ge\s+5',
     'TotalSeconds\s+-ge\s+60',
     'usage -p codex --format json'
 )) {

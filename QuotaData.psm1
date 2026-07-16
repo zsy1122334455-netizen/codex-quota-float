@@ -36,7 +36,6 @@ function ConvertTo-QuotaViewModel {
         throw 'Codex usage response is missing a required quota window.'
     }
 
-    $sessionWindow = $null
     $weeklyWindow = $null
     $hasWindowMetadata = $false
     foreach ($window in @($primaryWindow, $secondaryWindow)) {
@@ -45,41 +44,32 @@ function ConvertTo-QuotaViewModel {
         if ($null -eq $windowMinutes) { continue }
         $hasWindowMetadata = $true
         $minutes = [double]$windowMinutes
-        if ($minutes -ge 240 -and $minutes -le 360 -and $null -eq $sessionWindow) {
-            $sessionWindow = $window
-        }
-        elseif ($minutes -ge 9000 -and $minutes -le 11000 -and $null -eq $weeklyWindow) {
+        if ($minutes -ge 9000 -and $minutes -le 11000 -and $null -eq $weeklyWindow) {
             $weeklyWindow = $window
         }
     }
 
     # Older CodexBar responses did not include window_minutes. Preserve their
-    # positional meaning only when no duration metadata exists at all.
+    # positional meaning (secondary was weekly) only when no duration metadata
+    # exists at all. Never relabel a known 5-hour window as weekly quota.
     if (-not $hasWindowMetadata) {
-        $sessionWindow = $primaryWindow
         $weeklyWindow = $secondaryWindow
     }
 
-    $primaryRemaining = Get-RemainingPercent -Window $sessionWindow
     $weeklyRemaining = Get-RemainingPercent -Window $weeklyWindow
-    if ($null -eq $primaryRemaining -and $null -eq $weeklyRemaining) {
-        throw 'Codex usage response did not include a recognized quota window.'
+    if ($null -eq $weeklyRemaining) {
+        throw 'Codex usage response did not include a recognized weekly quota window.'
     }
 
-    $primaryReset = Get-OptionalPropertyValue -InputObject $sessionWindow -Name 'reset_description'
     $weeklyReset = Get-OptionalPropertyValue -InputObject $weeklyWindow -Name 'reset_description'
-    $displayRemaining = if ($null -ne $primaryRemaining) { $primaryRemaining } else { $weeklyRemaining }
 
     [pscustomobject]@{
-        SchemaVersion    = 2
+        SchemaVersion    = 3
         Plan             = [string](Get-OptionalPropertyValue -InputObject $usage -Name 'login_method')
-        HasPrimary       = $null -ne $primaryRemaining
-        PrimaryRemaining = $primaryRemaining
-        PrimaryReset     = [string]$primaryReset
-        HasWeekly        = $null -ne $weeklyRemaining
+        HasWeekly        = $true
         WeeklyRemaining  = $weeklyRemaining
         WeeklyReset      = [string]$weeklyReset
-        DisplayRemaining = $displayRemaining
+        DisplayRemaining = $weeklyRemaining
         UpdatedAt        = [string](Get-OptionalPropertyValue -InputObject $usage -Name 'updated_at')
     }
 }
@@ -111,7 +101,7 @@ function Get-CachedQuotaViewModel {
     if (-not (Test-Path -LiteralPath $Path)) { return $null }
     $model = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
     $schemaVersion = Get-OptionalPropertyValue -InputObject $model -Name 'SchemaVersion'
-    if ($schemaVersion -ne 2) { return $null }
+    if ($schemaVersion -ne 3) { return $null }
     return $model
 }
 
@@ -121,11 +111,10 @@ function ConvertFrom-CodePoints {
 }
 
 function Get-QuotaText {
-    param([Parameter(Mandatory)][ValidateSet('Remaining','Primary','Weekly','ResetSuffix','Updated','Stale','Refresh','StartAtLogin','OpenDetails','Exit','LoginExpired','CliMissing')][string]$Key)
+    param([Parameter(Mandatory)][ValidateSet('Remaining','Weekly','ResetSuffix','Updated','Stale','Refresh','StartAtLogin','OpenDetails','Exit','LoginExpired','CliMissing')][string]$Key)
 
     switch ($Key) {
         'Remaining'    { return ConvertFrom-CodePoints @(21097,20313) }
-        'Primary'      { return ConvertFrom-CodePoints @(53,32,23567,26102,21097,20313) }
         'Weekly'       { return ConvertFrom-CodePoints @(26412,21608,21097,20313) }
         'ResetSuffix'  { return ConvertFrom-CodePoints @(21518,37325,32622) }
         'Updated'      { return ConvertFrom-CodePoints @(21018,21018,26356,26032) }
