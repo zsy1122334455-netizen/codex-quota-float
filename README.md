@@ -103,7 +103,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-脚本会停止已安装的悬浮球、覆盖 `%APPDATA%\CodexQuotaFloat` 中的运行文件、刷新开机启动项并重新启动。已有的 `settings.json` 与 `last_usage.json` 不在覆盖列表中，因此位置设置会保留；旧版额度缓存会因架构版本不同而自动失效，并在下一次成功刷新后重建。
+脚本会停止已安装的悬浮球、覆盖 `%APPDATA%\CodexQuotaFloat` 中的运行文件、刷新开机启动项并重新启动。已有的 `settings.json` 与 `last_usage.json` 不在覆盖列表中，因此位置设置会保留；旧版、空白或损坏的额度缓存会自动失效，并在下一次成功刷新后重建，不会阻止悬浮球启动。
 
 ## 卸载
 
