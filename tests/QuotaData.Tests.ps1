@@ -151,7 +151,26 @@ Remove-Item $cachePath -Force -ErrorAction SilentlyContinue
 Save-CachedQuotaViewModel -Model $model -Path $cachePath
 $cached = Get-CachedQuotaViewModel -Path $cachePath
 Assert-Equal -Actual $cached.WeeklyRemaining -Expected 95 -Name 'cached weekly remaining percentage'
+Assert-Equal -Actual @(Get-ChildItem -LiteralPath (Split-Path -Parent $cachePath) -Filter ((Split-Path -Leaf $cachePath) + '.*.tmp')).Count -Expected 0 -Name 'atomic cache save cleans temporary files'
+
+$replacementModel = $model.PSObject.Copy()
+$replacementModel.WeeklyRemaining = 73
+Save-CachedQuotaViewModel -Model $replacementModel -Path $cachePath
+$replacedCache = Get-CachedQuotaViewModel -Path $cachePath
+Assert-Equal -Actual $replacedCache.WeeklyRemaining -Expected 73 -Name 'atomic cache save replaces an existing cache'
 Remove-Item $cachePath -Force -ErrorAction SilentlyContinue
+
+$emptyCachePath = Join-Path $env:TEMP 'CodexQuotaFloat-test-empty-cache.json'
+[IO.File]::WriteAllText($emptyCachePath, '')
+$emptyCached = Get-CachedQuotaViewModel -Path $emptyCachePath
+Assert-Equal -Actual $emptyCached -Expected $null -Name 'empty cache is ignored'
+Remove-Item $emptyCachePath -Force -ErrorAction SilentlyContinue
+
+$malformedCachePath = Join-Path $env:TEMP 'CodexQuotaFloat-test-malformed-cache.json'
+[IO.File]::WriteAllText($malformedCachePath, '{"SchemaVersion":3,"WeeklyRemaining":')
+$malformedCached = Get-CachedQuotaViewModel -Path $malformedCachePath
+Assert-Equal -Actual $malformedCached -Expected $null -Name 'malformed cache is ignored'
+Remove-Item $malformedCachePath -Force -ErrorAction SilentlyContinue
 
 $legacyCachePath = Join-Path $env:TEMP 'CodexQuotaFloat-test-legacy-cache.json'
 @{
