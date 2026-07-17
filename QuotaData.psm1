@@ -92,14 +92,37 @@ function Save-CachedQuotaViewModel {
     if (-not [string]::IsNullOrWhiteSpace($directory)) {
         New-Item -ItemType Directory -Path $directory -Force | Out-Null
     }
-    $Model | ConvertTo-Json -Depth 3 | Set-Content -Path $Path -Encoding UTF8
+    $fullPath = [IO.Path]::GetFullPath($Path)
+    $temporaryPath = $fullPath + '.' + [guid]::NewGuid().ToString('N') + '.tmp'
+    $backupPath = $fullPath + '.' + [guid]::NewGuid().ToString('N') + '.bak'
+    try {
+        $json = $Model | ConvertTo-Json -Depth 3
+        [IO.File]::WriteAllText($temporaryPath, $json, [Text.UTF8Encoding]::new($true))
+        if (Test-Path -LiteralPath $fullPath) {
+            [IO.File]::Replace($temporaryPath, $fullPath, $backupPath, $true)
+        }
+        else {
+            [IO.File]::Move($temporaryPath, $fullPath)
+        }
+    }
+    finally {
+        Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $backupPath -Force -ErrorAction SilentlyContinue
+    }
 }
 
 function Get-CachedQuotaViewModel {
     param([Parameter(Mandatory)][string]$Path)
 
-    if (-not (Test-Path -LiteralPath $Path)) { return $null }
-    $model = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $null }
+    try {
+        $json = [IO.File]::ReadAllText([IO.Path]::GetFullPath($Path), [Text.Encoding]::UTF8)
+        if ([string]::IsNullOrWhiteSpace($json)) { return $null }
+        $model = $json | ConvertFrom-Json -ErrorAction Stop
+    }
+    catch {
+        return $null
+    }
     $schemaVersion = Get-OptionalPropertyValue -InputObject $model -Name 'SchemaVersion'
     if ($schemaVersion -ne 3) { return $null }
     return $model
